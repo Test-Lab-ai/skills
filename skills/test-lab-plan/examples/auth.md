@@ -11,8 +11,6 @@ These templates favor patterns over fixtures (e.g., "a user menu is visible" rat
 **Mode:** Quick · **Agent:** Functional · **Assumes credentials:** `loginEmail`, `loginPassword`
 
 ```
-Pre-condition: user is logged out.
-
 Go to /login.
 
 Enter the email {{credentials.loginEmail}} and the password {{credentials.loginPassword}}.
@@ -33,8 +31,6 @@ Verify that:
 **Mode:** Quick · **Agent:** Functional · **Assumes credentials:** `loginEmail`
 
 ```
-Pre-condition: user is logged out.
-
 Go to /login.
 
 Enter the email {{credentials.loginEmail}} and the password "deliberately-wrong-password-1234!".
@@ -55,8 +51,6 @@ Verify that:
 **Mode:** Quick · **Agent:** Functional
 
 ```
-Pre-condition: user is logged out.
-
 Go to /signup.
 
 Fill the form with:
@@ -83,8 +77,6 @@ Verify that:
 **Mode:** Quick · **Agent:** Functional · **Assumes credentials:** `loginEmail`
 
 ```
-Pre-condition: user is logged out.
-
 Go to /forgot-password (or click "Forgot password?" from /login).
 
 Enter the email {{credentials.loginEmail}}.

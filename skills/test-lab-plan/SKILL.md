@@ -29,6 +29,18 @@ Ask (or infer from context) four things, then confirm before drafting:
 
 Why first: every later step depends on this. Drafting before scope is set produces plans that need rewriting.
 
+#### Read the source if it's in the repo
+
+If you're operating inside a repo that contains the target site's code, **read the relevant components and routes before drafting**. This is the difference between guessing and knowing. Use Glob / Grep / Read to find:
+
+- The page or form component (often in `app/`, `components/`, `src/components/`, or similar)
+- The API route handler the form posts to
+- Shared widgets the form composes (captcha, modal, error renderer)
+
+Anchor every acceptance criterion to real DOM text or real response shape. If the success state is "the form is replaced by a card with the heading 'Message Sent!'", say that exactly — not "a confirmation message appears."
+
+If the source is **not** available (you're not in the repo, or it's a third-party site), pull a snapshot via WebFetch or ask the user for screenshots of the key states. Do not invent placeholder text — vague criteria like "a success banner appears" make the AI agent flag false negatives whenever copy changes.
+
 ### 2. Pick the test mode
 
 Two modes exist:
@@ -82,7 +94,11 @@ If the user's request is ambiguous about scope (step 1), ask before drafting —
 ## Template
 
 ```
-[Optional one-line context, e.g. "Pre-condition: user is logged out."]
+[Optional pre-condition — only when the starting state diverges from the
+default. Default is: anonymous visitor, logged out, fresh browser. Don't
+write a pre-condition line restating the default. Examples that *do* belong:
+"Pre-condition: user is logged in (configure a login pre-step on this plan)"
+or "Pre-condition: a project named 'Acme' already exists in the org."]
 
 Go to <URL or path>.
 
@@ -112,12 +128,10 @@ Assumes credentials: testEmail, testPassword (configure in Settings → Credenti
 
 User says: "Write a test for our login. Lands on /login, real email and password from credentials, expects to land on /dashboard."
 
-You produce:
+You produce (no pre-condition line — the default of "logged out, fresh browser" already matches):
 
 ````
 ```
-Pre-condition: user is logged out.
-
 Go to /login.
 
 Enter the email {{credentials.testEmail}} and the password {{credentials.testPassword}}.
@@ -146,6 +160,8 @@ Walk this list before output. Each item failed = fix the plan, don't ship it.
 6. **No brittle fixtures.** Where data is dynamic ("a product", "a recent order"), the criterion uses a pattern not a literal value. Where the user explicitly named a value, it stays.
 7. **Variable spacing is correct.** `{{credentials.x}}` has no spaces; `{{ input.x }}` has spaces. Re-scan if the plan uses either.
 8. **Credentials footer present** if any `{{credentials.x}}` appears.
+9. **No redundant pre-condition line.** A `Pre-condition:` line only belongs when the starting state diverges from the default (anonymous visitor, logged out, fresh browser). "Pre-condition: user is logged out" is noise — drop it.
+10. **Acceptance criteria match real source where source was readable.** If you read the form/route code in step 1, every assertable text or shape comes from there, not from a guess. Quoting the wrong success-state copy is the most common drift cause.
 
 ## Anti-patterns (refuse or fix)
 
