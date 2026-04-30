@@ -77,7 +77,13 @@ Configure webhooks at **Settings → Webhooks** to get notified when a job compl
 
 ## When pipelines / pre-steps are involved
 
-Plans that have pre-steps configured (in the dashboard) execute pre-steps automatically before the main test. No special API parameter needed - just include the plan in `testPlanIds`. The response includes per-step status.
+A plan with pre-steps configured in the dashboard runs as a pipeline automatically — pre-steps execute first, then the main test, all sharing browser state. No special API parameter needed; just include the master plan in `testPlanIds` (or its `projectId` / `label`).
+
+With `preferScript: true`: if **every step** (every pre-step + the main) has a saved script for the chosen device, the whole pipeline runs as a script pipeline (state chains via Playwright `storageState`, no LLM cost). If **any step is missing a script**, the entire pipeline falls back to AI mode — mixing script + AI mid-pipeline can't share state cleanly. All-or-nothing.
+
+The `jobs[]` entry returned carries the **main plan's** job ID. Pre-step jobs share the same `pipeline_id` + `run_group_id` and can be looked up by querying jobs with that group ID.
+
+Don't confuse `triggerPipelinePreSteps` (above) with this: that flag controls whether plans that ARE pre-steps (used by others) get triggered when listed in a batch — independent from the auto-pipeline-execution behavior here, which fires for plans that HAVE pre-steps.
 
 ## Skill behavior
 
