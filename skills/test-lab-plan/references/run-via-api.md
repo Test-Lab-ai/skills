@@ -27,6 +27,7 @@ Exactly **one** of `testPlanIds`, `projectId`, or `label` is required. Every sel
 | `buildId` | string (≤100 chars) | Optional - your CI commit SHA / build number for traceability |
 | `cookies` | array of `{name, value, domain}` | Optional - runtime cookies; override stored ones |
 | `preferScript` | boolean | Optional - when true, each plan runs as its saved Playwright script if one exists (deterministic, no LLM cost). Falls back to AI when no script is on file. |
+| `triggerPipelinePreSteps` | boolean | Optional, default `false`. Plans configured as a pipeline pre-step (referenced by another plan as a pre-step) are silently excluded from batch runs by default — they expect input parameters or a specific browser state and produce false-failures when run solo. Set `true` to include them (e.g. you want to smoke-test the login pre-step on its own with default credentials). |
 
 ## Response
 
@@ -37,9 +38,12 @@ Always the same array shape regardless of selector:
   "jobs": [{ "jobId": "uuid", "testPlanId": 123, "testPlanName": "...", "testType": "quickTest", "status": "running" }, ...],
   "triggered": 3,
   "failed": 0,
+  "skipped": 0,
   "buildId": "abc123"
 }
 ```
+
+`status` per job is one of: `running`, `queued`, `pending`, `error`, `skipped`. A `skipped` entry carries an `error` message explaining why (e.g. "Plan is configured as a pipeline pre-step. Pass triggerPipelinePreSteps: true to include pre-step plans in batch runs."). `triggered` excludes both `error` and `skipped`.
 
 The endpoint returns immediately after queueing — it does not wait for tests to finish. Poll the job, set up a webhook, or use the `buildId` to look up status from a CI status check later.
 
