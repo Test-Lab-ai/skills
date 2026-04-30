@@ -16,14 +16,13 @@ API keys come from **Settings → API Keys** in the dashboard. Treat them like p
 
 ## Request body
 
-Exactly **one** of `testPlanId`, `testPlanIds`, `projectId`, or `labelId` is required:
+Exactly **one** of `testPlanIds`, `projectId`, or `label` is required. Every selector is scoped to the API key's account — the API never resolves plans, projects, or labels owned by other accounts.
 
 | Field | Type | Description |
 |---|---|---|
-| `testPlanId` | number | Run a single plan |
-| `testPlanIds` | number[] or comma-string | Run a batch (e.g., `[1,2,3]` or `"1,2,3"`) |
+| `testPlanIds` | number[] or comma-string | Run one or more plans (e.g., `[1,2,3]` or `"1,2,3"`) |
 | `projectId` | number | Run every plan in the project |
-| `labelId` | number | Run every plan tagged with the label (account-scoped) |
+| `label` | string | Run every plan tagged with this label name (matched by name within the account) |
 | `testType` | `"quickTest"` or `"deepTest"` | Optional - overrides the plan's saved default |
 | `buildId` | string (≤100 chars) | Optional - your CI commit SHA / build number for traceability |
 | `cookies` | array of `{name, value, domain}` | Optional - runtime cookies; override stored ones |
@@ -31,17 +30,14 @@ Exactly **one** of `testPlanId`, `testPlanIds`, `projectId`, or `labelId` is req
 
 ## Response
 
-**Single plan:**
-```json
-{ "jobId": "uuid", "status": "running", "testPlanId": 123, "testType": "quickTest" }
-```
+Always the same array shape regardless of selector:
 
-**Batch / project:**
 ```json
 {
-  "jobs": [{ "jobId": "uuid", "testPlanId": 123, "status": "running" }, ...],
+  "jobs": [{ "jobId": "uuid", "testPlanId": 123, "testPlanName": "...", "testType": "quickTest", "status": "running" }, ...],
   "triggered": 3,
-  "failed": 0
+  "failed": 0,
+  "buildId": "abc123"
 }
 ```
 
@@ -73,19 +69,19 @@ Configure webhooks at **Settings → Webhooks** to get notified when a job compl
 | 401 | `Invalid API key` | Token revoked, typo in `Authorization` header, missing `Bearer ` prefix |
 | 402 | `Insufficient credits...` | Top up the org's credit balance |
 | 404 | `No test plans found` | Wrong `testPlanId` / `projectId`, or the key belongs to a different org |
-| 400 | `One of testPlanId, testPlanIds, projectId, or labelId is required` | Body missing the selector |
+| 400 | `One of testPlanIds, projectId, or label is required` | Body missing the selector |
 
 ## When pipelines / pre-steps are involved
 
-Plans that have pre-steps configured (in the dashboard) execute pre-steps automatically before the main test. No special API parameter needed — just trigger the main plan's `testPlanId`. The response includes per-step status.
+Plans that have pre-steps configured (in the dashboard) execute pre-steps automatically before the main test. No special API parameter needed - just include the plan in `testPlanIds`. The response includes per-step status.
 
 ## Skill behavior
 
 When you cite this file to the user, output:
-1. The minimal `curl` for their case (single / batch / project / label)
+1. The minimal `curl` for their case (testPlanIds / projectId / label)
 2. A note about which env var to set the API key in
-3. A reminder that the API takes IDs, so the plan must already exist in the dashboard
+3. A reminder that the API takes IDs (or label names) and only resolves them on the API key's account; the plan / project / label must already exist there
 4. If they want script-mode runs (cheaper, no LLM cost), include `"preferScript": true` in the body and explain it falls back to AI per-plan when no script is on file
 5. A pointer to webhooks if they ask "how do I know when it's done"
 
-Do **not** generate API keys, do **not** infer `testPlanId` values, and do **not** offer to actually call the API. The skill's role ends at "here is the curl you would run."
+Do **not** generate API keys, do **not** infer `testPlanIds` / `projectId` / `label` values, and do **not** offer to actually call the API. The skill's role ends at "here is the curl you would run."
