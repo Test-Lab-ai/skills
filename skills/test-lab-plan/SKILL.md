@@ -25,7 +25,7 @@ Ask (or infer from context) four things, then confirm before drafting:
 - **The flow**: one sentence — "user signs up", "shopper checks out with a saved card", "admin disables a schedule"
 - **The starting URL or path**: `/login`, `https://example.com/cart`, etc. The agent has to navigate somewhere to begin.
 - **What success looks like**: the visible signal that the flow worked (redirect, message, element appearing). The agent needs verifiable acceptance criteria, not "verify it works."
-- **Who performs it**: anonymous visitor, logged-in user, admin. This decides whether the plan needs a logged-in pre-step (see references/syntax.md).
+- **Who performs it**: anonymous visitor, logged-in user, admin. If the flow needs a logged-in user or other setup state, configure that as a pre-step on the plan in the dashboard — don't add it to the prompt body (see references/syntax.md).
 
 Why first: every later step depends on this. Drafting before scope is set produces plans that need rewriting.
 
@@ -87,19 +87,18 @@ For dynamic values the agent shouldn't pin to a fixture, write the criterion as 
 
 ### 7. Self-check, then hand back
 
-Before outputting the plan, run it through the Self-check section below. Fix anything the checklist catches. Then output the plan inside a fenced markdown block (so the user can copy it cleanly), followed by a one-line summary of mode + agent type + assumed credentials.
+Before outputting the plan, run it through the Self-check section below. Fix anything the checklist catches. Then output exactly:
+
+1. A single 3-backtick fenced code block containing the plan body (so the user can copy it cleanly).
+2. Immediately after, a one-line summary in plain prose with mode + agent type + assumed credentials.
+
+Do NOT wrap the output in another fence (e.g. 4-backticks around the whole thing). The user wants the code block to be copy-pasteable as-is — nesting fences leaks stray ``` lines into the visible output.
 
 If the user's request is ambiguous about scope (step 1), ask before drafting — do not guess and produce a wrong-shaped plan.
 
 ## Template
 
 ```
-[Optional pre-condition — only when the starting state diverges from the
-default. Default is: anonymous visitor, logged out, fresh browser. Don't
-write a pre-condition line restating the default. Examples that *do* belong:
-"Pre-condition: user is logged in (configure a login pre-step on this plan)"
-or "Pre-condition: a project named 'Acme' already exists in the org."]
-
 Go to <URL or path>.
 
 <Action 1 — one or two sentences in natural prose.>
@@ -113,6 +112,8 @@ Verify that:
 2. <Observable state 2.>
 3. <Observable state 3.>
 ```
+
+Setup state (logged-in user, fixture data, etc.) is configured as a pre-step on the plan in the dashboard — never as a `Pre-condition:` line in the prompt body. Don't include such a line.
 
 For sensitive values, references go inline:
 ```
@@ -128,9 +129,8 @@ Assumes credentials: testEmail, testPassword (configure in Settings → Credenti
 
 User says: "Write a test for our login. Lands on /login, real email and password from credentials, expects to land on /dashboard."
 
-You produce (no pre-condition line — the default of "logged out, fresh browser" already matches):
+You produce (one 3-backtick fenced code block, then the summary line as plain prose — no outer wrapper):
 
-````
 ```
 Go to /login.
 
@@ -146,7 +146,6 @@ Verify that:
 ```
 
 **Mode:** Quick · **Agent:** Functional · **Assumes credentials:** `testEmail`, `testPassword` (set in Settings → Credentials).
-````
 
 ## Self-check (apply before handing back)
 
@@ -160,8 +159,9 @@ Walk this list before output. Each item failed = fix the plan, don't ship it.
 6. **No brittle fixtures.** Where data is dynamic ("a product", "a recent order"), the criterion uses a pattern not a literal value. Where the user explicitly named a value, it stays.
 7. **Variable spacing is correct.** `{{credentials.x}}` has no spaces; `{{ input.x }}` has spaces. Re-scan if the plan uses either.
 8. **Credentials footer present** if any `{{credentials.x}}` appears.
-9. **No redundant pre-condition line.** A `Pre-condition:` line only belongs when the starting state diverges from the default (anonymous visitor, logged out, fresh browser). "Pre-condition: user is logged out" is noise — drop it.
+9. **No `Pre-condition:` line in the prompt body.** Setup state (logged-in user, fixture data) belongs in the plan's pre-step config in the dashboard, not in the prose. If a draft has a `Pre-condition:` line, drop it.
 10. **Acceptance criteria match real source where source was readable.** If you read the form/route code in step 1, every assertable text or shape comes from there, not from a guess. Quoting the wrong success-state copy is the most common drift cause.
+11. **Output is a single 3-backtick fenced code block + a Mode/Agent/Credentials prose line, no nested fences.** Wrapping the output in a 4-backtick (or any outer) fence leaks stray ``` lines into the rendered output. One fence around the plan, then prose.
 
 ## Anti-patterns (refuse or fix)
 
