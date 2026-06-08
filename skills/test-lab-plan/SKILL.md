@@ -6,13 +6,20 @@ allowed-tools:
   - Glob
   - Grep
   - WebFetch
+  - Bash
+  - Write
 ---
 
 # test-lab.ai test plans
 
 [test-lab.ai](https://test-lab.ai) is an AI QA platform. A test plan is a plain-English prompt that describes a single user flow; an AI agent reads the prompt, drives a real browser, and reports pass/fail against the acceptance criteria you wrote. Your job in this skill is to turn whatever the user describes into a paste-ready plan that follows the conventions below.
 
-You are **not** running the test. You are **writing the prompt**. Your output goes into the test-lab.ai dashboard (Test Plans → New) or into a file the user will paste from. Do not call any test-lab.ai API.
+You are **writing the prompt** (you don't run the test). There are two ways your output gets used — offer the second whenever it's available:
+
+1. **Copy-paste** into the test-lab.ai dashboard (Test Plans → New) — the default.
+2. **Create it directly** with the `@test-lab-ai/cli` (`testlab`), which creates the credentials, labels, test data (data fixtures), AND the plan(s) in the user's account in one step. See **"Creating it with the CLI"** below.
+
+Either way the design rules are identical (explicit URLs, declarative criteria, credentials syntax) — the CLI just uploads what you'd otherwise hand back to paste.
 
 ## Workflow
 
@@ -81,9 +88,11 @@ If the flow uses sensitive values (passwords, API keys, real emails), reference 
 - Use `{{credentials.<name>}}` — **no spaces** inside the braces. The dashboard validates this and rejects spaced variants.
 - Never write a literal password into a plan you hand back. If the user gives you one, replace it with `{{credentials.<name>}}` and list the credential name in an "Assumes credentials:" footer so the user knows what to set up in Settings → Credentials.
 
+If the flow needs to **input generated or unique data** — a fresh email per run, a random name, a unique order ref — define a **data fixture** and reference it as `{{data.<fixtureKey>.<fieldKey>}}` (no spaces). A fixture field is either *static* (a literal value) or *dynamic* (a generator like `internet.email`, `person.firstName`, or `string.uuid` that rolls a fresh value every run). Prefer this over a brittle hardcoded value or asking the user to pre-make one. You create fixtures with the CLI (see "Creating it with the CLI"); run `testlab examples` for the field shape and the full generator list.
+
 For pipeline inputs (only in pre-steps), the syntax is `{{ input.<name> }}` **with spaces** — and the fallback form `{{ input.<name> | credentials.<fallback> }}`. The two syntaxes are intentionally different; do not mix them. Full detail in `references/syntax.md`.
 
-For dynamic values the agent shouldn't pin to a fixture, write the criterion as a pattern: "verify *a* product appears" rather than "verify 'Blue Widget' appears."
+For dynamic values in **acceptance criteria** (data you *check*, not data you *enter*), write the criterion as a pattern: "verify *a* product appears" rather than "verify 'Blue Widget' appears." Fixtures are for input; patterns are for assertions.
 
 ### 7. Self-check, then hand back
 
@@ -188,8 +197,38 @@ These are the most common ways a draft goes wrong. Name the failure to the user 
 
 When the user is pasting into the dashboard, use UI labels in your summary. When the user is calling the API or writing a CI script, use the string form. If you don't know which surface, default to UI labels and note the API equivalent in parentheses.
 
+## Creating it with the CLI
+
+The `@test-lab-ai/cli` (command `testlab`) creates everything you've designed — credentials, labels, data fixtures, and the plan(s) — directly in the user's test-lab account, so they don't copy-paste. Offer this whenever it's set up.
+
+**1. Check it's available and authenticated.** Run `testlab whoami` (or, with no install, `npx @test-lab-ai/cli whoami`). If it says "not authenticated," the user runs `testlab login` once or sets `TESTLAB_API_KEY` — do NOT create anything until auth works. If the `testlab` command isn't found, fall back to `npx @test-lab-ai/cli …`.
+
+**2. Ask first.** `testlab import` writes to the user's account. Confirm they want you to create the resources (vs. just receiving the plan to paste).
+
+**3. Build one import bundle** — a JSON file with everything the plan needs, created in order (credentials → labels → fixtures → plans). Run `testlab examples` for the exact shape of every resource. For example, write `bundle.json`:
+
+```json
+{
+  "credentials": [ { "key": "password", "value": "<the user gives you this — never invent one>" } ],
+  "labels": ["smoke"],
+  "fixtures": [
+    { "key": "newUser", "fields": [
+      { "key": "email", "mode": "dynamic", "generator": "internet.email" }
+    ] }
+  ],
+  "plans": [
+    { "name": "Sign up", "prompt": "Go to https://app.example.com/signup and register with {{data.newUser.email}} / {{credentials.password}}. Confirm the welcome screen.", "labels": ["smoke"] }
+  ]
+}
+```
+
+**4. Preview, then create:** `testlab import bundle.json --dry-run`, then `testlab import bundle.json`.
+
+Rules: get secret VALUES from the user (the CLI stores them encrypted, never echoed). Reference fixtures as `{{data.KEY.FIELD}}` and credentials as `{{credentials.KEY}}` in the prompt. Wire plans together with pre-steps via a `ref` handle. The CLI ships a deep agent guide as `AGENTS.md`; `testlab examples` is the canonical, always-current reference.
+
 ## Going further
 
+- **Create plans (and their credentials, labels, and data) directly** instead of pasting — the `@test-lab-ai/cli`. See "Creating it with the CLI" above.
 - **Variable syntax in depth** (pre-steps, pipeline inputs, devices) — see `references/syntax.md`.
 - **Triggering plans from CI** (only when the user has an API key + an existing `testPlanId`) — see `references/run-via-api.md`.
 - **Auth flow templates** to adapt — `examples/auth.md`.
