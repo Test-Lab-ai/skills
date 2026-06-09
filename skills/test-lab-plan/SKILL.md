@@ -205,9 +205,24 @@ The `@test-lab-ai/cli` (command `testlab`) creates everything you've designed �
 
 **1. Check it's available and authenticated.** Run `testlab whoami` (or, with no install, `npx @test-lab-ai/cli whoami`). If it says "not authenticated," the user runs `testlab login` once or sets `TESTLAB_API_KEY` — do NOT create anything until auth works. If the `testlab` command isn't found, fall back to `npx @test-lab-ai/cli …`.
 
-**2. Ask first.** `testlab import` writes to the user's account. Confirm they want you to create the resources (vs. just receiving the plan to paste).
+**2. Survey what already exists, and reuse it.** Before creating anything, inventory the account so you don't duplicate resources or ask for things that already exist:
+- `testlab projects list` (projects)
+- `testlab credentials list` (credential keys; values are never shown)
+- `testlab labels list` (labels)
+- `testlab data list` (data fixtures)
+- `testlab plans list` (existing plans)
 
-**3. Build one import bundle** — a JSON file with everything the plan needs, created in order (credentials → labels → fixtures → plans). Run `testlab examples` for the exact shape of every resource. For example, write `bundle.json`:
+Then design the plan to REUSE what fits:
+- reference an existing credential key (e.g. `{{credentials.testPassword}}`) instead of asking for a secret that already exists;
+- reuse an existing label and an existing data fixture rather than making near-duplicates;
+- if the flow needs setup state (a login, a seeded record), wire an EXISTING plan as a pre-step by name (e.g. a "Login" plan for an auth-gated page) instead of writing a new one;
+- choose the project: no projects means account-level; exactly one is used automatically; if there are several, **show the user the list and ask** (never silently fall back to `--project none`), and **propose a name-matching project** when one fits (e.g. "TestLab Admin" for an admin-dashboard test). An agent can't answer the CLI's interactive prompt, so resolve this now.
+
+Create only the resources that are missing.
+
+**3. Ask first.** `testlab import` writes to the user's account. Confirm they want you to create the resources (vs. just receiving the plan to paste).
+
+**4. Build one import bundle** with only the NEW resources the plan needs (plus references to the existing ones found in step 2), created in order (credentials → labels → fixtures → plans). Run `testlab examples` for the exact shape of every resource. For example, write `bundle.json`:
 
 ```json
 {
@@ -224,9 +239,7 @@ The `@test-lab-ai/cli` (command `testlab`) creates everything you've designed �
 }
 ```
 
-**4. Pick a project (if the user has any).** Imported plans can live in a project or stay account-level. Run `testlab projects list`: if there's exactly one project, `testlab import` uses it automatically; if there are several, ASK the user which one (or none) and pass `--project <id|name>` (or `--project none`). An agent can't answer the interactive prompt, so decide before running. No projects means account-level, nothing to pass.
-
-**5. Preview, then create:** `testlab import bundle.json --dry-run`, then `testlab import bundle.json` (add `--project <id|name>` when the user picked one).
+**5. Preview, then create:** `testlab import bundle.json --dry-run`, then `testlab import bundle.json --project <id|name>` (use the project resolved in step 2; omit `--project` only when the account has zero or one projects).
 
 Rules: get secret VALUES from the user (the CLI stores them encrypted, never echoed). Reference fixtures as `{{data.<fixture>.<field>}}` and credentials as `{{credentials.<key>}}` in the prompt. Wire plans together with pre-steps via a `ref` handle. The CLI ships a deep agent guide as `AGENTS.md`; `testlab examples` is the canonical, always-current reference.
 
