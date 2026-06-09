@@ -224,7 +224,9 @@ The `@test-lab-ai/cli` (command `testlab`) creates everything you've designed â€
 }
 ```
 
-**4. Preview, then create:** `testlab import bundle.json --dry-run`, then `testlab import bundle.json`.
+**4. Pick a project (if the user has any).** Imported plans can live in a project or stay account-level. Run `testlab projects list`: if there's exactly one project, `testlab import` uses it automatically; if there are several, ASK the user which one (or none) and pass `--project <id|name>` (or `--project none`). An agent can't answer the interactive prompt, so decide before running. No projects means account-level, nothing to pass.
+
+**5. Preview, then create:** `testlab import bundle.json --dry-run`, then `testlab import bundle.json` (add `--project <id|name>` when the user picked one).
 
 Rules: get secret VALUES from the user (the CLI stores them encrypted, never echoed). Reference fixtures as `{{data.<fixture>.<field>}}` and credentials as `{{credentials.<key>}}` in the prompt. Wire plans together with pre-steps via a `ref` handle. The CLI ships a deep agent guide as `AGENTS.md`; `testlab examples` is the canonical, always-current reference.
 
