@@ -1,6 +1,6 @@
 ---
 name: test-lab-plan
-description: Write production-ready test plans for test-lab.ai, the AI QA platform that runs natural-language tests against websites. Use this skill whenever the user wants to write a test for test-lab.ai, draft a "natural language test" / "english test" / "AI test" / "test plan", set up acceptance criteria for a user flow, describe a journey to test, or generate prompts for the test-lab.ai dashboard. Trigger on mentions of test-lab, test-lab.ai, or testlab, and on requests like "test my login", "write a QA test for [page]", "smoke test for [flow]", or any browser-test description that does not reference Playwright/Cypress/Jest by name. Outputs a copy-pasteable test plan with explicit URLs, numbered acceptance criteria, mode + agent type recommendation, and {{credentials.X}} syntax for sensitive values.
+description: Write production-ready test plans for test-lab.ai, the AI QA platform that runs natural-language tests against websites. Use this skill whenever the user wants to write a test for test-lab.ai, draft a "natural language test" / "english test" / "AI test" / "test plan", set up acceptance criteria for a user flow, describe a journey to test, or generate prompts for the test-lab.ai dashboard. Trigger on mentions of test-lab, test-lab.ai, or testlab, and on requests like "test my login", "write a QA test for [page]", "smoke test for [flow]", or any browser-test description that does not reference Playwright/Cypress/Jest by name. Outputs a copy-pasteable test plan with explicit URLs, numbered acceptance criteria, mode + agent type recommendation, and {{credentials.<key>}} syntax for sensitive values.
 allowed-tools:
   - Read
   - Glob
@@ -67,6 +67,8 @@ Two agent types are user-pickable in the dashboard today:
 - **Accessibility** — WCAG behavior, keyboard navigation, focus management, screen-reader-relevant patterns. Use only when the test is about a11y; do not silently pick it for general tests.
 
 Other agent types (UI/UX, exploratory, performance, security) exist in the platform but are not yet exposed in the dashboard; do not recommend them.
+
+**Labels:** assign exactly **one** label by default: the single most relevant tag, such as the feature area (`onboarding`, `auth`, `checkout`) or `smoke` for a basic health check. Add a second label only if the user explicitly asks for more. In the dashboard you set this on the plan; in a CLI bundle it is the plan's `labels` array, which should normally have a single entry.
 
 ### 4. Draft the plan from the template
 
@@ -224,11 +226,12 @@ The `@test-lab-ai/cli` (command `testlab`) creates everything you've designed �
 
 **4. Preview, then create:** `testlab import bundle.json --dry-run`, then `testlab import bundle.json`.
 
-Rules: get secret VALUES from the user (the CLI stores them encrypted, never echoed). Reference fixtures as `{{data.KEY.FIELD}}` and credentials as `{{credentials.KEY}}` in the prompt. Wire plans together with pre-steps via a `ref` handle. The CLI ships a deep agent guide as `AGENTS.md`; `testlab examples` is the canonical, always-current reference.
+Rules: get secret VALUES from the user (the CLI stores them encrypted, never echoed). Reference fixtures as `{{data.<fixture>.<field>}}` and credentials as `{{credentials.<key>}}` in the prompt. Wire plans together with pre-steps via a `ref` handle. The CLI ships a deep agent guide as `AGENTS.md`; `testlab examples` is the canonical, always-current reference.
 
 ## Going further
 
 - **Create plans (and their credentials, labels, and data) directly** instead of pasting — the `@test-lab-ai/cli`. See "Creating it with the CLI" above.
+- **Two ways to drive this skill** (author a test while you build a feature, or import tests you already have) — see `examples/workflows.md`.
 - **Variable syntax in depth** (pre-steps, pipeline inputs, devices) — see `references/syntax.md`.
 - **Triggering plans from CI** (only when the user has an API key + an existing `testPlanId`) — see `references/run-via-api.md`.
 - **Auth flow templates** to adapt — `examples/auth.md`.
