@@ -46,6 +46,7 @@ Keep the prompt a clean user-journey spec: **no setup, auth, or implementation d
 - `testlab whoami` – confirm the CLI is authenticated. If not, the user runs `testlab login` once or sets `TESTLAB_API_KEY`. If `testlab` is not found, use `npx @test-lab-ai/cli` instead.
 - `testlab plans list` – find the plan id to upload to. The plan must already have a target URL (from its prompt or its project), because the script runs against that origin. Uploading a script replaces AI generation for that plan + device, so from then on the prompt's job is to be the spec you implemented and the fallback — keep the two in sync.
 - **Read the real UI before asserting.** If you are in the target site's repo, read the relevant component / route so your locators and assertions match real DOM text and real success states, not guesses. If you are not in the repo, pull a snapshot with WebFetch or ask the user for the key screens. Anchor every `expect` to something real **and to a criterion in the prompt.**
+- **Fixing a script the plan already runs?** Download the live one with `testlab scripts get <id> [--device] [--out <file>]` (works for uploaded *and* generated scripts) instead of guessing at it, then edit and re-upload. That is the full fetch → fix → `scripts upload` loop, no dashboard needed.
 
 ### 3. Write the steps against `sharedPage`
 
