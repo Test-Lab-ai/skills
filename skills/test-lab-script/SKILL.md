@@ -1,0 +1,163 @@
+---
+name: test-lab-script
+description: Write and upload a Playwright .spec.ts to test-lab.ai to skip paid AI script generation. Use this skill when the user wants to hand-write a Playwright test (or already has one) and attach it to an EXISTING test-lab.ai test plan via the CLI (`testlab scripts upload`), instead of describing a flow in English for the AI to generate. Trigger on "upload a Playwright script to test-lab", "write the Playwright myself", "I already have a .spec.ts", "skip AI generation / save credits", "attach my own test script", "testlab scripts upload". For describing a flow in plain English so the platform generates the Playwright, use the test-lab-plan skill instead. Outputs a .spec.ts that passes the upload allow-list (no imports, no lifecycle hooks, Playwright + safe JS only) plus the exact upload command.
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - WebFetch
+  - Bash
+  - Write
+---
+
+# test-lab.ai uploaded scripts
+
+[test-lab.ai](https://test-lab.ai) is an AI QA platform. Normally you describe a flow in plain English and the platform's AI generates the Playwright that runs it (that is the `test-lab-plan` skill). This skill is the other path: you **write the Playwright `.spec.ts` yourself** and upload it to an existing plan, so the plan runs your exact script and skips paid generation.
+
+Use this skill when the user says they want to write the Playwright themselves, already have a `.spec.ts`, or wants to save generation credits. If they instead want to describe a flow and let the AI build it, use **test-lab-plan**.
+
+## The one thing to understand first
+
+You write **only the test steps**. You do **not** write the scaffolding. When you upload, the platform throws away everything except your step bodies and your top-level shared variables, then re-wraps them in its own harness that:
+
+- imports Playwright and sets up the browser, context, tracing, and teardown for you,
+- opens a shared page named `sharedPage`, already navigated to the plan's start URL, before your first step,
+- runs your steps **serially**, in order, sharing that one page and browser context.
+
+So your file must **not** contain `import` lines or `beforeAll`/`afterAll` hooks. If you write them, they are ignored (the harness owns them). What you write is a sequence of `test(...)` steps that drive `sharedPage`.
+
+This also means the script runs in a **restricted environment**: Playwright and ordinary JavaScript only. No Node APIs (`fs`, `process`, `require`), no network clients (`fetch`, the `request` fixture), no `page.evaluate`. You drive the application the way a user would: through the page. The full allow / deny list is in `references/playwright-api.md` and is summarized below.
+
+## Workflow
+
+Follow these in order.
+
+### 1. Confirm the target plan exists and is reachable
+
+An upload attaches to an **existing** plan by numeric id. Before writing anything:
+
+- `testlab whoami` – confirm the CLI is authenticated. If not, the user runs `testlab login` once or sets `TESTLAB_API_KEY`. If `testlab` is not found, use `npx @test-lab-ai/cli` instead.
+- `testlab plans list` – find the plan id to upload to. The plan must already have a target URL (from its prompt or its project), because the script runs against that origin.
+
+If there is no suitable plan yet, create one first (in the dashboard, or with the **test-lab-plan** skill + `testlab import`). The plan's English prompt stops driving runs the moment a script is uploaded: your script replaces AI generation for that plan and device.
+
+### 2. Know the flow and its checks
+
+Same discipline as a good test plan: one user journey, explicit start, observable assertions. If you are in the target site's repo, read the relevant component / route so your locators and assertions match real DOM text and real success states, not guesses. If you are not in the repo, pull a snapshot with WebFetch or ask the user for the key screens. Anchor every `expect` to something real.
+
+### 3. Write the steps against `sharedPage`
+
+Use the Template below. Each step is a `test("Step N: ...", async (...) => { ... })` block that acts on `sharedPage` and asserts with `expect`. The browser already sits on the start URL when Step 1 begins, so go straight into the flow. Keep one logical action + its checks per step; steps run in order and share state.
+
+### 4. Plug in credentials and per-run data through fixtures
+
+Never inline a real password, token, or email. Pull sensitive values from the `credentials` fixture, and unique-per-run values from the `run` fixture, by **destructuring them in the step's parameters**:
+
+```ts
+test("Step 1: Sign in", async ({ credentials }) => {
+  await sharedPage.getByLabel("Email").fill(credentials.testEmail);
+  await sharedPage.getByLabel("Password").fill(credentials.testPassword);
+  await sharedPage.getByRole("button", { name: "Sign in" }).click();
+});
+```
+
+The real values are injected at run time and never appear in your file. Configure the credential keys on the plan first (dashboard → Credentials, or `testlab credentials`). For a fresh value each run (a unique email, an order ref), use the `run` fixture (e.g. `run.shortId`); run `testlab examples` for the exact fixture shape. A bare `credentials` / `run` / `page` reference (not destructured) is rejected with a message telling you to add it to the step parameters.
+
+### 5. Self-check, then upload
+
+Run the Self-check list below. Then write the file and upload:
+
+```bash
+testlab scripts upload login.spec.ts --plan 1234
+```
+
+- `--device` is optional; omit it and the server uses the plan's first configured device. If you pass one it must match a device configured on the plan, or the upload is rejected.
+- On success you see `✓ Uploaded … → plan #1234 (N steps, <device>)` and the plan now runs your script instead of AI generation.
+- On rejection the CLI prints the issues to fix. Allow-list problems come as `L<line>:<col> [<rule>] <message>` lines (the `[rule]` → fix map is in `references/playwright-api.md`); a security-review or device-mismatch rejection prints a plain reason instead. Fix what each says and re-upload. Don't try to "trick" the validator; rewrite the step to drive the page.
+
+## Template
+
+A passing uploaded script looks like this. Note: no imports, no `beforeAll`/`afterAll`, steps drive `sharedPage`, shared state is a top-level `let`.
+
+```ts
+// Optional cross-step state (top-level let/const is allowed and carried over).
+let orderRef = "";
+
+test("Step 1: Sign in", async ({ credentials }) => {
+  // sharedPage is already on the plan's start URL.
+  await sharedPage.getByLabel("Email").fill(credentials.testEmail);
+  await sharedPage.getByLabel("Password").fill(credentials.testPassword);
+  await sharedPage.getByRole("button", { name: "Sign in" }).click();
+  await expect(sharedPage.getByRole("navigation")).toContainText("Dashboard");
+});
+
+test("Step 2: Place an order", async ({ run }) => {
+  orderRef = `TEST-${run.shortId}`;
+  await sharedPage.getByRole("link", { name: "New order" }).click();
+  await sharedPage.getByLabel("Reference").fill(orderRef);
+  await sharedPage.getByRole("button", { name: "Submit" }).click();
+});
+
+test("Step 3: Confirm it was created", async () => {
+  await expect(sharedPage.getByRole("heading")).toHaveText("Order created");
+  await expect(sharedPage.getByText(orderRef)).toBeVisible();
+});
+```
+
+You may wrap the steps in `test.describe.serial("...", () => { ... })` if you prefer; it is optional (the harness already runs them serially). Top-level `let`/`const`/`function` declarations are carried over so steps can share them.
+
+### What you can write inside a step
+
+- **Playwright:** `sharedPage` actions (`goto`, `click`, `fill`, `getByRole`/`getByLabel`/`getByText`/`locator`, `waitForURL`, `waitForLoadState`, …) and `expect(...)` matchers (`toBeVisible`, `toHaveText`, `toHaveURL`, …).
+- **Plain JavaScript:** variables, `if`/`for`/`while`/`try`, arrow and named functions, destructuring, `async`/`await`, template literals, regex, `Promise.all([...])`.
+- **Safe built-ins:** `JSON`, `Math`, `Date`, `RegExp`, `Number`, `String`, `Array`, `Object`, `Set`, `Map`, `console`, `Intl`, and similar pure helpers.
+- **Fixtures**, by destructuring step parameters: `page`, `context`, `browser`, `run`, `credentials`, `pipeline`, `testInfo`, `browserName`. (`sharedPage`, `context`, and `expect` are already available without destructuring.)
+
+### What you must not write (and the fix)
+
+| Don't | Why / Fix |
+|---|---|
+| `import ...` / `export ...` | The harness provides imports. Delete them. |
+| `test.beforeAll` / `afterAll` / `beforeEach` | The harness owns lifecycle. Put setup in Step 1 against `sharedPage`. |
+| `process`, `require`, `fs`, `Buffer`, `__dirname` | Node host APIs are unavailable. Drive the app through the page. |
+| `fetch`, `XMLHttpRequest`, `WebSocket`, the `request` fixture | No direct network clients. Trigger requests via UI actions and assert the visible result. |
+| `page.evaluate` / `$eval` / `waitForFunction` / `addInitScript` / `page.route` | In-page code execution and network interception are unavailable. Use locators + `expect`. |
+| `eval`, `Function(...)`, `globalThis`, `Reflect`, `Proxy` | Not available. Write the logic directly. |
+| `window`, `document`, `navigator`, `location` | Step bodies run in Node, not the browser. Use Playwright locators (`sharedPage.getBy…`). |
+| `el["some" + x]` (computed key) or `.constructor` / `.__proto__` | Use dot access, `.nth(i)`, or `.at(i)`; don't touch prototype/constructor. |
+| Downloading a file to disk via Node | Not available in an uploaded step. Assert the download was offered (e.g. a `download` event or the link/state) through the page. |
+
+The complete lists and the per-rule fixes are in `references/playwright-api.md`.
+
+## Self-check (apply before upload)
+
+1. **No `import`/`export` lines** anywhere in the file.
+2. **No `beforeAll`/`afterAll`/`beforeEach`.** Setup lives in Step 1 against `sharedPage`.
+3. **At least one `test("...", async (...) => { ... })` step**, and each does one logical action + its checks.
+4. **Steps drive `sharedPage`** for continuity (a destructured `page` is a fresh, un-navigated page – only use it for a deliberately isolated check).
+5. **Every assertion is real.** `expect` targets DOM text / state that actually exists (read the source where you could).
+6. **No inlined secrets.** Passwords / tokens / real emails come from `{ credentials }`; unique-per-run values from `{ run }`. Each is destructured in the step that uses it.
+7. **No Node / browser / network globals** (`process`, `fs`, `fetch`, `window`, `request`, …) and **no `page.evaluate`/`route`**. If you reached for one, rewrite the step to use the page.
+8. **No computed member keys or prototype access** (`x[expr]`, `.constructor`, `.__proto__`).
+9. **The plan id is right** (`testlab plans list`) and the plan has a target URL.
+
+If any item fails, fix it before uploading – it will be rejected server-side anyway, and fixing first saves a round-trip.
+
+## Anti-patterns (fix before upload)
+
+| Anti-pattern | Why it's wrong | Fix |
+|---|---|---|
+| File starts with `import { test, expect } from "@playwright/test"` | The harness injects these and strips any imports you write (a leftover import is ignored, not run), so they're dead weight. | Delete all import lines. |
+| `test.beforeAll(async () => { await page.goto(...) })` | Lifecycle is owned by the platform and discarded. | Do first-step setup inside `test("Step 1: …")` on `sharedPage`. |
+| Using a destructured `page` across steps and wondering why state resets | Destructured `page` is a fresh page per step, not the shared one. | Use `sharedPage` for a continuous flow. |
+| `const data = await page.evaluate(() => window.__STATE__)` | In-page execution is unavailable. | Assert on rendered DOM via locators + `expect`. |
+| `await fetch("/api/orders")` to seed data | No network client in a step. | Drive the seeding through the UI, or set it up as a plan pre-step. |
+| `password: "hunter2"` inlined | Secrets in scripts leak into reports and version control. | `async ({ credentials }) => …` and `credentials.password`. |
+| Re-implementing login in every script | Wasted steps; brittle. | If the plan has a login pre-step, start after it; otherwise keep login as Step 1 only. |
+
+## Relationship to test-lab-plan
+
+- **test-lab-plan** – describe a flow in English; the AI generates and maintains the Playwright. Best when you want low effort or don't have a script.
+- **test-lab-script** (this skill) – you own the Playwright; upload it verbatim. Best when you already have a script, need exact control, or want to save generation credits.
+
+An uploaded script can still be refined later with AI from the dashboard (it is tagged as uploaded vs generated). `testlab examples` is the canonical, always-current reference for fixture shapes and resource formats.

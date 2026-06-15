@@ -245,6 +245,7 @@ Rules: get secret VALUES from the user (the CLI stores them encrypted, never ech
 
 ## Going further
 
+- **Write the Playwright yourself and upload it** (skip paid AI generation) instead of describing a flow — use the **test-lab-script** skill (`testlab scripts upload`). Best when the user already has a `.spec.ts` or wants exact control.
 - **Create plans (and their credentials, labels, and data) directly** instead of pasting — the `@test-lab-ai/cli`. See "Creating it with the CLI" above.
 - **Two ways to drive this skill** (author a test while you build a feature, or import tests you already have) — see `examples/workflows.md`.
 - **Variable syntax in depth** (pre-steps, pipeline inputs, devices) — see `references/syntax.md`.
