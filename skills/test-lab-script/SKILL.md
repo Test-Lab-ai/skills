@@ -32,18 +32,20 @@ This also means the script runs in a **restricted environment**: Playwright and 
 
 Follow these in order.
 
-### 1. Confirm the target plan exists and is reachable
+### 1. Design the test as a plan prompt first (with test-lab-plan)
 
-An upload attaches to an **existing** plan by numeric id. Before writing anything:
+The plan's English **prompt is the spec; your script is one implementation of it.** Design the spec before you write a line of Playwright — that is what keeps the script honest and reviewable, and it is the fallback the platform runs if the script is ever cleared. Skipping this is how you end up with a script glued to a throwaway prompt that describes something else.
+
+- **No plan yet?** Use the **test-lab-plan** skill to design it: one user journey, an explicit start URL, and a numbered `Verify that:` block of observable acceptance criteria. Create it (dashboard or `testlab import`), then attach your script.
+- **Plan already exists?** Read its prompt — that *is* your spec. If the prompt is vague, wrong, or describes a different flow, fix it with test-lab-plan **before** writing the script. Never encode behaviour in the script that the prompt doesn't claim.
+
+Keep the prompt a clean user-journey spec: **no setup, auth, or implementation detail in the prose** — logged-in state, injected cookies, environment config, "no login needed", framework internals: none of it belongs there. Setup lives in the plan's pre-step / project environment, not the prompt body (test-lab-plan enforces this). Your script then *implements* that spec: one `test("Step N: …")` per prompt action, and an `expect` for each numbered acceptance criterion.
+
+### 2. Confirm the plan is reachable and read the real UI
 
 - `testlab whoami` – confirm the CLI is authenticated. If not, the user runs `testlab login` once or sets `TESTLAB_API_KEY`. If `testlab` is not found, use `npx @test-lab-ai/cli` instead.
-- `testlab plans list` – find the plan id to upload to. The plan must already have a target URL (from its prompt or its project), because the script runs against that origin.
-
-If there is no suitable plan yet, create one first (in the dashboard, or with the **test-lab-plan** skill + `testlab import`). The plan's English prompt stops driving runs the moment a script is uploaded: your script replaces AI generation for that plan and device.
-
-### 2. Know the flow and its checks
-
-Same discipline as a good test plan: one user journey, explicit start, observable assertions. If you are in the target site's repo, read the relevant component / route so your locators and assertions match real DOM text and real success states, not guesses. If you are not in the repo, pull a snapshot with WebFetch or ask the user for the key screens. Anchor every `expect` to something real.
+- `testlab plans list` – find the plan id to upload to. The plan must already have a target URL (from its prompt or its project), because the script runs against that origin. Uploading a script replaces AI generation for that plan + device, so from then on the prompt's job is to be the spec you implemented and the fallback — keep the two in sync.
+- **Read the real UI before asserting.** If you are in the target site's repo, read the relevant component / route so your locators and assertions match real DOM text and real success states, not guesses. If you are not in the repo, pull a snapshot with WebFetch or ask the user for the key screens. Anchor every `expect` to something real **and to a criterion in the prompt.**
 
 ### 3. Write the steps against `sharedPage`
 
@@ -140,6 +142,7 @@ The complete lists and the per-rule fixes are in `references/playwright-api.md`.
 7. **No Node / browser / network globals** (`process`, `fs`, `fetch`, `window`, `request`, …) and **no `page.evaluate`/`route`**. If you reached for one, rewrite the step to use the page.
 8. **No computed member keys or prototype access** (`x[expr]`, `.constructor`, `.__proto__`).
 9. **The plan id is right** (`testlab plans list`) and the plan has a target URL.
+10. **The script implements the plan's prompt.** Every prompt action maps to a `test("Step N: …")`, and every numbered acceptance criterion maps to an `expect`. The prompt itself reads as a clean user journey — no setup/auth/implementation detail leaked into the prose (that belongs in the plan's pre-step / environment). If the prompt and the script disagree, fix the prompt with test-lab-plan first.
 
 If any item fails, fix it before uploading – it will be rejected server-side anyway, and fixing first saves a round-trip.
 
@@ -157,7 +160,9 @@ If any item fails, fix it before uploading – it will be rejected server-side a
 
 ## Relationship to test-lab-plan
 
-- **test-lab-plan** – describe a flow in English; the AI generates and maintains the Playwright. Best when you want low effort or don't have a script.
-- **test-lab-script** (this skill) – you own the Playwright; upload it verbatim. Best when you already have a script, need exact control, or want to save generation credits.
+These **compose; they are not either/or.** test-lab-plan designs the spec (the plan's prompt); test-lab-script implements it (the Playwright). Even when you will hand-write the script, start with test-lab-plan so the spec is a clean, reviewable user journey and the script has a concrete contract to satisfy — see Workflow step 1.
+
+- **test-lab-plan** – describe a flow in English; the AI generates and maintains the Playwright. Best when you want low effort, or as the spec step before you write your own script.
+- **test-lab-script** (this skill) – you own the Playwright and upload it verbatim to implement that spec. Best when you need exact control, already have a script, or want to save generation credits.
 
 An uploaded script can still be refined later with AI from the dashboard (it is tagged as uploaded vs generated). `testlab examples` is the canonical, always-current reference for fixture shapes and resource formats.
