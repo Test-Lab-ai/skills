@@ -22,7 +22,10 @@ You write **only the test steps**. You do **not** write the scaffolding. When yo
 
 - imports Playwright and sets up the browser, context, tracing, and teardown for you,
 - opens a shared page named `sharedPage`, already navigated to the plan's start URL, before your first step,
-- runs your steps **serially**, in order, sharing that one page and browser context.
+- runs your steps **serially**, in order, sharing that one page and browser context,
+- **captures a screenshot after every action** on `sharedPage` (each `click`, `fill`, `type`, `press`, `check`, `selectOption`, `setInputFiles`, `hover`, `goto`, and so on), so the run report shows a per-action screenshot timeline automatically.
+
+That last point matters for how you chunk steps: **screenshot granularity is per action, not per `test()` block.** You do **not** need to split each click and fill into its own step to get a screenshot for it. Write natural steps that group a logical action + its checks; the harness still captures one screenshot per action inside them. (For safety, the capture right after typing into a `type="password"` field is skipped, so a typed secret is never the subject of a screenshot.)
 
 So your file must **not** contain `import` lines or `beforeAll`/`afterAll` hooks. If you write them, they are ignored (the harness owns them). What you write is a sequence of `test(...)` steps that drive `sharedPage`.
 
@@ -39,7 +42,7 @@ The plan's English **prompt is the spec; your script is one implementation of it
 - **No plan yet?** Use the **test-lab-plan** skill to design it: one user journey, an explicit start URL, and a numbered `Verify that:` block of observable acceptance criteria. Create it (dashboard or `testlab import`), then attach your script.
 - **Plan already exists?** Read its prompt — that *is* your spec. If the prompt is vague, wrong, or describes a different flow, fix it with test-lab-plan **before** writing the script. Never encode behaviour in the script that the prompt doesn't claim.
 
-Keep the prompt a clean user-journey spec: **no setup, auth, or implementation detail in the prose** — logged-in state, injected cookies, environment config, "no login needed", framework internals: none of it belongs there. Setup lives in the plan's pre-step / project environment, not the prompt body (test-lab-plan enforces this). Your script then *implements* that spec: one `test("Step N: …")` per prompt action, and an `expect` for each numbered acceptance criterion.
+Keep the prompt a clean user-journey spec: **no setup, auth, or implementation detail in the prose** (logged-in state, injected cookies, environment config, "no login needed", framework internals: none of it belongs there). Setup lives in the plan's pre-step / project environment, not the prompt body (test-lab-plan enforces this). Your script then *implements* that spec: map the prompt's actions to `test("Step N: ...")` steps and add an `expect` for each numbered acceptance criterion. Group naturally: a step can drive several actions in a row (fill username, fill password, click sign in) and still gets a screenshot per action. Don't inflate the step list by splitting every action into its own `test()`; that's not needed for screenshots.
 
 ### 2. Confirm the plan is reachable and read the real UI
 
@@ -50,7 +53,7 @@ Keep the prompt a clean user-journey spec: **no setup, auth, or implementation d
 
 ### 3. Write the steps against `sharedPage`
 
-Use the Template below. Each step is a `test("Step N: ...", async (...) => { ... })` block that acts on `sharedPage` and asserts with `expect`. The browser already sits on the start URL when Step 1 begins, so go straight into the flow. Keep one logical action + its checks per step; steps run in order and share state.
+Use the Template below. Each step is a `test("Step N: ...", async (...) => { ... })` block that acts on `sharedPage` and asserts with `expect`. The browser already sits on the start URL when Step 1 begins, so go straight into the flow. Group a logical action + its checks per step; steps run in order and share state. A step may perform several actions in a row, and the harness captures a screenshot after each one, so you get a full per-action timeline without splitting them into separate `test()` blocks.
 
 ### 4. Plug in credentials and per-run data through fixtures
 
@@ -136,7 +139,7 @@ The complete lists and the per-rule fixes are in `references/playwright-api.md`.
 
 1. **No `import`/`export` lines** anywhere in the file.
 2. **No `beforeAll`/`afterAll`/`beforeEach`.** Setup lives in Step 1 against `sharedPage`.
-3. **At least one `test("...", async (...) => { ... })` step**, and each does one logical action + its checks.
+3. **At least one `test("...", async (...) => { ... })` step**, each a logical action-group + its checks. Grouping several actions in one step is fine; the harness screenshots each action, so you never need one `test()` per click.
 4. **Steps drive `sharedPage`** for continuity (a destructured `page` is a fresh, un-navigated page – only use it for a deliberately isolated check).
 5. **Every assertion is real.** `expect` targets DOM text / state that actually exists (read the source where you could).
 6. **No inlined secrets.** Passwords / tokens / real emails come from `{ credentials }`; unique-per-run values from `{ run }`. Each is destructured in the step that uses it.

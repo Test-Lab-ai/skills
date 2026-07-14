@@ -27,6 +27,16 @@ test("Step 1: ...", async ({ page, credentials, run }, testInfo) => { ... });
 - `page` (destructured) – a **fresh** page in a separate fixture context, **not** `sharedPage`. State does not carry between steps on it. Use `sharedPage` unless you deliberately want an isolated page.
 - **Not** available as a fixture: `request` (the Playwright `APIRequestContext`). There is no direct HTTP client in an uploaded step; drive requests through the UI.
 
+## Automatic per-action screenshots
+
+The harness wraps `sharedPage` and its locators so that **after every action resolves it captures a viewport screenshot**, attached to the run's per-step timeline (and the trace). The captured actions are: `click`, `dblclick`, `fill`, `type`, `press`, `pressSequentially`, `check`, `uncheck`, `setChecked`, `selectOption`, `setInputFiles`, `hover`, `tap`, `dragTo`/`dragAndDrop`, and navigation (`goto`, `goBack`, `reload`).
+
+Consequences for how you write steps:
+
+- **Screenshot granularity is per action, not per `test()` block.** A step that groups several actions still yields one screenshot per action. You never need to split each click/fill into its own `test()` to get a screenshot for it; write natural, logically grouped steps.
+- **Secret safety:** the capture right after a `fill`/`type`/`pressSequentially` into a `type="password"` field is skipped, so a typed password is never the subject of a screenshot. (Browsers also render password inputs as dots.) Non-password fields can't be auto-detected, so still pull any sensitive value from the `credentials` fixture rather than inlining it. Real credential values are injected at run time and masked from the model, never written in your file.
+- Best-effort + bounded: capture never throws into your test, and there is a per-run cap, so a very long run won't balloon. Assertions (`expect`, `waitFor`, `isVisible`, and the like) are **not** actions and don't trigger a capture.
+
 ## Playwright surface you can use
 
 Anything on `sharedPage` / `page` / locators / `expect` **except** the denied method names below. The common, fully-allowed set:
