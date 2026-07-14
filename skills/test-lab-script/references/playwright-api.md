@@ -26,6 +26,23 @@ test("Step 1: ...", async ({ page, credentials, run }, testInfo) => { ... });
 - `run.shortId` (and other `run` fields) – per-run values, e.g. to build a unique email or reference. Run `testlab examples` for the full shape.
 - `page` (destructured) – a **fresh** page in a separate fixture context, **not** `sharedPage`. State does not carry between steps on it. Use `sharedPage` unless you deliberately want an isolated page.
 - **Not** available as a fixture: `request` (the Playwright `APIRequestContext`). There is no direct HTTP client in an uploaded step; drive requests through the UI.
+- **Not** available as a fixture: `data`. A data fixture is used through the `{{data.*}}` string literal, not by destructuring - see the next section.
+
+## Data fixtures: `{{data.*}}` literals (not a destructured fixture)
+
+A **data fixture** (generated or unique input configured on the account) is used from a script as a `{{data.<fixtureKey>.<fieldKey>}}` **string literal**, not by destructuring:
+
+```ts
+test("Step 1: ...", async () => {
+  await sharedPage.getByLabel("Code").fill("{{data.ownerCompany.code}}");
+});
+```
+
+The server substitutes the value into the script source before it runs - the same templating used for plan prompts, cookie values, and header/credential values. `{{run.<field>}}` (e.g. `{{run.shortId}}`) works the same way, in addition to the destructured `run` fixture; both `{{data.*}}` and `{{run.*}}` are server-resolved at run time.
+
+`data` is **not** in the fixture allow-list, so **destructuring it is denied**: `async ({ data }) => ...` fails with `denied-fixture` (`data` is not an allowed test fixture). The `{{data.*}}` literal is the only way to reach a data fixture from a script. Because the same reference works verbatim in the plan prompt, keep the two in sync: use the fixture in both, or neither. Never define a fixture the prompt references while the script fills a different hardcoded value.
+
+Data fixtures are **account-scoped only**: no project scoping (the create API takes `{ key, label, fields }` with no `projectId`, unlike plans), and no CLI delete (`testlab data` has only `list` and `create` - remove a fixture from the dashboard). Define them with the test-lab-plan skill or `testlab data create`.
 
 ## Automatic per-action screenshots
 
@@ -76,7 +93,7 @@ When `testlab scripts upload` prints `L<line>:<col> [<rule>] <message>`, this is
 | `denied-api` | A method like `evaluate`/`route`/`request`. | Use locators + `expect` (drive the UI); remove network interception / in-page eval. |
 | `dangerous-member` | `.constructor` / `.__proto__` / `.prototype` etc. | Access the value directly; don't walk the prototype chain. |
 | `computed-member` | `x[expr]` with a non-literal key. | Use dot access, `.nth(i)`, or `.at(i)`. |
-| `denied-fixture` | A step destructured a fixture that isn't allowed (e.g. `request`). | Use only `page`, `context`, `browser`, `run`, `credentials`, `pipeline`, `testInfo`, `browserName`; drive HTTP through the page. |
+| `denied-fixture` | A step destructured a fixture that isn't allowed (e.g. `request`, or `data`). | Use only `page`, `context`, `browser`, `run`, `credentials`, `pipeline`, `testInfo`, `browserName`. Drive HTTP through the page; reach a **data fixture** with the `{{data.*}}` literal, not by destructuring `data`. |
 | `free-identifier` | A name that is neither a safe global, an allowed fixture, nor declared by you (e.g. `process`, `fetch`, a bare `credentials`). | Remove the host/browser global, or – if it's a fixture – add it to the step parameters (`async ({ credentials }) => ...`), or declare your own variable. |
 
 ## The page model, in one line

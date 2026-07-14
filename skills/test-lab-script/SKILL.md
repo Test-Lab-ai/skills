@@ -57,7 +57,9 @@ Use the Template below. Each step is a `test("Step N: ...", async (...) => { ...
 
 ### 4. Plug in credentials and per-run data through fixtures
 
-Never inline a real password, token, or email. Pull sensitive values from the `credentials` fixture, and unique-per-run values from the `run` fixture, by **destructuring them in the step's parameters**:
+Never inline a real password, token, or email. Uploaded scripts pull dynamic values in through fixtures, and there are **two different mechanisms** - pick the right one for the value.
+
+**A. Destructured fixtures** (`credentials`, `run`, `page`, `context`, `browser`, `pipeline`, `testInfo`, `browserName`). Add them to the step's parameters and read fields off the object. Use these for secrets (`credentials`) and per-run values (`run`):
 
 ```ts
 test("Step 1: Sign in", async ({ credentials }) => {
@@ -67,7 +69,23 @@ test("Step 1: Sign in", async ({ credentials }) => {
 });
 ```
 
-The real values are injected at run time and never appear in your file. Configure the credential keys on the plan first (dashboard → Credentials, or `testlab credentials`). For a fresh value each run (a unique email, an order ref), use the `run` fixture (e.g. `run.shortId`); run `testlab examples` for the exact fixture shape. A bare `credentials` / `run` / `page` reference (not destructured) is rejected with a message telling you to add it to the step parameters.
+The real values are injected at run time and never appear in your file. Configure the credential keys on the plan first (the dashboard's Credentials screen, or `testlab credentials`). For a fresh value each run (a unique email, an order ref), use the `run` fixture (e.g. `run.shortId`); run `testlab examples` for the exact fixture shape. A bare `credentials` / `run` / `page` reference (not destructured) is rejected with a message telling you to add it to the step parameters.
+
+**B. Server-resolved template literals** - `{{data.<fixture>.<field>}}` and `{{run.<field>}}`. These are **not** fixtures you destructure; they are string literals the server substitutes into your step code before it runs, exactly like the templating in plan prompts, cookie values, and header values. Use them for **data fixtures**: generated or unique input (a fresh email, a per-run code) defined on the account.
+
+```ts
+test("Step 1: Register the company", async () => {
+  await sharedPage.getByLabel("Company name").fill("{{data.ownerCompany.name}}");
+  await sharedPage.getByLabel("Code").fill("{{data.ownerCompany.code}}");
+  await sharedPage.getByRole("button", { name: "Create" }).click();
+});
+```
+
+`{{run.shortId}}` works as a literal too (in addition to the destructured `run` fixture); both `{{run.*}}` and `{{data.*}}` resolve server-side at run time. **Do not destructure a `data` fixture** - `async ({ data }) => ...` is rejected (`denied-fixture`: `data` is not an allowed fixture). The `{{data.*}}` literal is the only way to reach a data fixture from a script.
+
+Because the **same** `{{data.<fixture>.<field>}}` reference works in both the plan prompt and the uploaded script, use the fixture in both (or neither). Never define a data fixture that only the plan prompt references while the script fills a different hardcoded value - that silently desyncs the spec (prompt) from the implementation (script), which Workflow step 1 forbids.
+
+Data fixtures are **account-level only**: they are not project-scoped (the API takes `{ key, label, fields }` with no `projectId`, unlike plans), so a fixture is global to your account and shows on every run's "Test data used" panel. Create them with `testlab data create` or an import bundle; there is no `testlab data delete`, so remove a fixture from the dashboard. Use the test-lab-plan skill to define the fixture and its generators.
 
 ### 5. Self-check, then upload
 
@@ -118,6 +136,7 @@ You may wrap the steps in `test.describe.serial("...", () => { ... })` if you pr
 - **Plain JavaScript:** variables, `if`/`for`/`while`/`try`, arrow and named functions, destructuring, `async`/`await`, template literals, regex, `Promise.all([...])`.
 - **Safe built-ins:** `JSON`, `Math`, `Date`, `RegExp`, `Number`, `String`, `Array`, `Object`, `Set`, `Map`, `console`, `Intl`, and similar pure helpers.
 - **Fixtures**, by destructuring step parameters: `page`, `context`, `browser`, `run`, `credentials`, `pipeline`, `testInfo`, `browserName`. (`sharedPage`, `context`, and `expect` are already available without destructuring.)
+- **Server-resolved template literals** inside any string: `{{data.<fixture>.<field>}}` (data-fixture values) and `{{run.<field>}}`, substituted server-side before the step runs. The `{{data.*}}` literal is the only way to use a data fixture in a script - `data` is not destructurable. See Workflow step 4.
 
 ### What you must not write (and the fix)
 
@@ -131,6 +150,7 @@ You may wrap the steps in `test.describe.serial("...", () => { ... })` if you pr
 | `eval`, `Function(...)`, `globalThis`, `Reflect`, `Proxy` | Not available. Write the logic directly. |
 | `window`, `document`, `navigator`, `location` | Step bodies run in Node, not the browser. Use Playwright locators (`sharedPage.getBy…`). |
 | `el["some" + x]` (computed key) or `.constructor` / `.__proto__` | Use dot access, `.nth(i)`, or `.at(i)`; don't touch prototype/constructor. |
+| `async ({ data }) => data.foo.bar` | `data` is not a destructurable fixture (rejected: `denied-fixture`). Use the `{{data.foo.bar}}` string literal inside the step instead; it is resolved server-side. |
 | Downloading a file to disk via Node | Not available in an uploaded step. Assert the download was offered (e.g. a `download` event or the link/state) through the page. |
 
 The complete lists and the per-rule fixes are in `references/playwright-api.md`.
@@ -147,6 +167,7 @@ The complete lists and the per-rule fixes are in `references/playwright-api.md`.
 8. **No computed member keys or prototype access** (`x[expr]`, `.constructor`, `.__proto__`).
 9. **The plan id is right** (`testlab plans list`) and the plan has a target URL.
 10. **The script implements the plan's prompt.** Every prompt action maps to a `test("Step N: …")`, and every numbered acceptance criterion maps to an `expect`. The prompt itself reads as a clean user journey — no setup/auth/implementation detail leaked into the prose (that belongs in the plan's pre-step / environment). If the prompt and the script disagree, fix the prompt with test-lab-plan first.
+11. **Data fixtures go through `{{data.*}}` literals and match the prompt.** A data fixture is used via the `{{data.<fixture>.<field>}}` string literal (never a `{ data }` destructure). If the plan prompt references a fixture, the script uses the same `{{data.*}}` literal - don't define a fixture the prompt uses while the script fills a different hardcoded value, or vice versa.
 
 If any item fails, fix it before uploading – it will be rejected server-side anyway, and fixing first saves a round-trip.
 
@@ -160,6 +181,8 @@ If any item fails, fix it before uploading – it will be rejected server-side a
 | `const data = await page.evaluate(() => window.__STATE__)` | In-page execution is unavailable. | Assert on rendered DOM via locators + `expect`. |
 | `await fetch("/api/orders")` to seed data | No network client in a step. | Drive the seeding through the UI, or set it up as a plan pre-step. |
 | `password: "hunter2"` inlined | Secrets in scripts leak into reports and version control. | `async ({ credentials }) => …` and `credentials.password`. |
+| `async ({ data }) => data.company.code` | `data` is not a destructurable fixture; upload is rejected (`denied-fixture`). | Use the `{{data.company.code}}` string literal in the step (resolved server-side). Reserve destructuring for `credentials` / `run` / etc. |
+| Plan prompt uses `{{data.company.code}}` but the script fills a hardcoded `"ACME-123"` | The spec (prompt) and implementation (script) silently disagree; the same fixture should back both. | Use the same `{{data.company.code}}` literal in the script so both reference one fixture. |
 | Re-implementing login in every script | Wasted steps; brittle. | If the plan has a login pre-step, start after it; otherwise keep login as Step 1 only. |
 
 ## Relationship to test-lab-plan

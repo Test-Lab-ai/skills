@@ -92,6 +92,11 @@ If the flow uses sensitive values (passwords, API keys, real emails), reference 
 
 If the flow needs to **input generated or unique data** — a fresh email per run, a random name, a unique order ref — define a **data fixture** and reference it as `{{data.<fixtureKey>.<fieldKey>}}` (no spaces). A fixture field is either *static* (a literal value) or *dynamic* (a generator like `internet.email`, `person.firstName`, or `string.uuid` that rolls a fresh value every run). Prefer this over a brittle hardcoded value or asking the user to pre-make one. You create fixtures with the CLI (see "Creating it with the CLI"); run `testlab examples` for the field shape and the full generator list.
 
+Two things to know about data fixtures:
+
+- **They are account-level, not project-scoped.** The `POST /api/v1/data-fixtures` payload is `{ key, label, fields }` with no `projectId` (only plans take a project), so a fixture is global to the account and appears on every run's "Test data used" panel. Create them with `testlab data create` or an import bundle; there is no `testlab data delete`, so delete a fixture from the dashboard.
+- **The same fixture works verbatim in an uploaded Playwright script.** The identical `{{data.<fixtureKey>.<fieldKey>}}` reference resolves server-side inside an uploaded script too (as a string literal, not a destructured fixture - see the test-lab-script skill). So when a plan will be implemented by an uploaded script, reference the fixture in both the prompt and the script; don't hardcode a different value in one of them.
+
 For pipeline inputs (only in pre-steps), the syntax is `{{ input.<name> }}` **with spaces** — and the fallback form `{{ input.<name> | credentials.<fallback> }}`. The two syntaxes are intentionally different; do not mix them. Full detail in `references/syntax.md`.
 
 For dynamic values in **acceptance criteria** (data you *check*, not data you *enter*), write the criterion as a pattern: "verify *a* product appears" rather than "verify 'Blue Widget' appears." Fixtures are for input; patterns are for assertions.
