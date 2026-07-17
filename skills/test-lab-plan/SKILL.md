@@ -92,9 +92,10 @@ If the flow uses sensitive values (passwords, API keys, real emails), reference 
 
 If the flow needs to **input generated or unique data** — a fresh email per run, a random name, a unique order ref — define a **data fixture** and reference it as `{{data.<fixtureKey>.<fieldKey>}}` (no spaces). A fixture field is either *static* (a literal value) or *dynamic* (a generator like `internet.email`, `person.firstName`, or `string.uuid` that rolls a fresh value every run). Prefer this over a brittle hardcoded value or asking the user to pre-make one. You create fixtures with the CLI (see "Creating it with the CLI"); run `testlab examples` for the field shape and the full generator list.
 
-Two things to know about data fixtures:
+Three things to know about data fixtures:
 
-- **They are account-level, not project-scoped.** The `POST /api/v1/data-fixtures` payload is `{ key, label, fields }` with no `projectId` (only plans take a project), so a fixture is global to the account and appears on every run's "Test data used" panel. Create them with `testlab data create` or an import bundle; there is no `testlab data delete`, so delete a fixture from the dashboard.
+- **Each one is either account-level or scoped to a single project.** `testlab data create -f fixture.json --project <id|name>` scopes a fixture to that project; `--project none` (or omitting the flag) keeps it account-level, which is the default. An account-level fixture resolves on every run in the account; a project-scoped one resolves only on runs of that project's plans, and where both define the same `<fixtureKey>.<fieldKey>` the project's value wins there (account-level fields the project does not redefine still resolve). Scope to a project for values that only make sense in one app, tenant, or environment; keep shared defaults account-level. `testlab data list [--project <id|name>]` lists one scope at a time, so a fixture absent from `testlab data list` may still exist inside a project.
+- **The CLI creates fixtures but cannot change them.** `testlab data` has only `list` and `create` (no `update`, no `delete`), and `create` returns 409 when the key already exists in the same scope, so it is never an upsert. Create with `testlab data create` or an import bundle; edit or delete in the dashboard's "Manage test data" modal, which has a tab per scope (Account, then each project). Every fixture that resolves for a run appears on that run's "Test data used" panel.
 - **The same fixture works verbatim in an uploaded Playwright script.** The identical `{{data.<fixtureKey>.<fieldKey>}}` reference resolves server-side inside an uploaded script too (as a string literal, not a destructured fixture - see the test-lab-script skill). So when a plan will be implemented by an uploaded script, reference the fixture in both the prompt and the script; don't hardcode a different value in one of them.
 
 For pipeline inputs (only in pre-steps), the syntax is `{{ input.<name> }}` **with spaces** — and the fallback form `{{ input.<name> | credentials.<fallback> }}`. The two syntaxes are intentionally different; do not mix them. Full detail in `references/syntax.md`.
@@ -214,7 +215,7 @@ The `@test-lab-ai/cli` (command `testlab`) creates everything you've designed �
 - `testlab projects list` (projects)
 - `testlab credentials list` (credential keys; values are never shown)
 - `testlab labels list` (labels)
-- `testlab data list` (data fixtures)
+- `testlab data list` (account-level data fixtures) and `testlab data list --project <id|name>` for each project in play - each call lists one scope only
 - `testlab plans list` (existing plans)
 
 Then design the plan to REUSE what fits:

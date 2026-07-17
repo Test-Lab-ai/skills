@@ -42,7 +42,7 @@ The server substitutes the value into the script source before it runs - the sam
 
 `data` is **not** in the fixture allow-list, so **destructuring it is denied**: `async ({ data }) => ...` fails with `denied-fixture` (`data` is not an allowed test fixture). The `{{data.*}}` literal is the only way to reach a data fixture from a script. Because the same reference works verbatim in the plan prompt, keep the two in sync: use the fixture in both, or neither. Never define a fixture the prompt references while the script fills a different hardcoded value.
 
-Data fixtures are **account-scoped only**: no project scoping (the create API takes `{ key, label, fields }` with no `projectId`, unlike plans), and no CLI delete (`testlab data` has only `list` and `create` - remove a fixture from the dashboard). Define them with the test-lab-plan skill or `testlab data create`.
+A fixture is **either account-level or scoped to a single project**: `testlab data create -f fixture.json --project <id|name>` scopes it, and `--project none` (or no flag) keeps it account-level, the default. Account-level fixtures resolve on every run; a project's own fixtures resolve on that project's runs and win over an account-level field of the same name. `testlab data list [--project <id|name>]` lists one scope at a time. The CLI has only `list` and `create` (no `update` or `delete`, and `create` 409s on an existing key in the same scope), so edit or remove a fixture in the dashboard's "Manage test data" modal. Define them with the test-lab-plan skill or `testlab data create`.
 
 ## Automatic per-action screenshots
 
