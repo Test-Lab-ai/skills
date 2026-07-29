@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "test-lab",
+  "version": "0.1.0",
+  "description": "Write, run, and debug browser QA tests on test-lab.ai. Bundles the test-lab MCP connector plus skills for authoring plain-English test plans and hand-written Playwright scripts.",
+  "author": {
+    "name": "test-lab.ai",
+    "email": "hello@test-lab.ai",
+    "url": "https://test-lab.ai"
+  },
+  "homepage": "https://test-lab.ai/docs/skills",
+  "repository": "https://github.com/Test-Lab-ai/skills",
+  "license": "MIT",
+  "keywords": [
+    "test-lab",
+    "testing",
+    "qa",
+    "e2e",
+    "playwright",
+    "browser-testing",
+    "test-automation",
+    "regression-testing"
+  ],
+  "mcpServers": "./claude-mcp.json",
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "test-lab.ai API key",
+      "description": "Optional. Create one at https://test-lab.ai/admin/settings/api-keys. Leave BLANK if you use `testlab login` or per-folder .test-lab.json bindings: a key set here overrides those everywhere, pinning every project to this one account. Blank is the right choice for multi-account setups.",
+      "sensitive": true
+    },
+    "profile": {
+      "type": "string",
+      "title": "Account profile (optional)",
+      "description": "Optional. Name of a stored profile in ~/.test-lab/config.json. Leave BLANK to let each folder's .test-lab.json choose its own account; setting it here pins every folder to this profile."
+    }
+  }
+}

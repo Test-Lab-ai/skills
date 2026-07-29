@@ -1,0 +1,19 @@
+{
+  "name": "test-lab",
+  "description": "Official test-lab.ai plugins for AI agents.",
+  "owner": {
+    "name": "test-lab.ai",
+    "url": "https://test-lab.ai"
+  },
+  "plugins": [
+    {
+      "name": "test-lab",
+      "description": "test-lab.ai runs natural-language QA tests against real websites: you describe a user flow, an agent drives a browser through it, and you get pass/fail against the acceptance criteria you wrote. These skills teach the agent to author that work properly - test plans with explicit URLs, numbered observable acceptance criteria, and credential references instead of inlined secrets; hand-written Playwright that passes the upload allow-list; and account setup and auth troubleshooting.",
+      "category": "Developer Tools",
+      "source": "./"
+    }
+  ],
+  "interface": {
+    "displayName": "test-lab.ai"
+  }
+}

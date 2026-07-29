@@ -1,0 +1,36 @@
+{
+  "name": "test-lab",
+  "owner": {
+    "name": "test-lab.ai",
+    "email": "hello@test-lab.ai"
+  },
+  "metadata": {
+    "description": "test-lab.ai plugins for Claude Code and Cowork.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "test-lab",
+      "source": "./",
+      "description": "Write, run, and debug browser QA tests on test-lab.ai. Bundles the test-lab MCP connector plus skills for authoring plain-English test plans and hand-written Playwright scripts.",
+      "author": {
+        "name": "test-lab.ai",
+        "email": "hello@test-lab.ai"
+      },
+      "homepage": "https://test-lab.ai/docs/skills",
+      "repository": "https://github.com/Test-Lab-ai/skills",
+      "license": "MIT",
+      "category": "Developer Tools",
+      "keywords": [
+        "test-lab",
+        "testing",
+        "qa",
+        "e2e",
+        "playwright",
+        "browser-testing",
+        "test-automation",
+        "regression-testing"
+      ]
+    }
+  ]
+}

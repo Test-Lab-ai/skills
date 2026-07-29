@@ -1,0 +1,45 @@
+{
+  "name": "test-lab",
+  "version": "0.1.0",
+  "description": "Write, run, and debug browser QA tests on test-lab.ai. Bundles the test-lab MCP connector plus skills for authoring plain-English test plans and hand-written Playwright scripts.",
+  "author": {
+    "name": "test-lab.ai",
+    "email": "hello@test-lab.ai",
+    "url": "https://test-lab.ai"
+  },
+  "homepage": "https://test-lab.ai/docs/skills",
+  "repository": "https://github.com/Test-Lab-ai/skills",
+  "license": "MIT",
+  "keywords": [
+    "test-lab",
+    "testing",
+    "qa",
+    "e2e",
+    "playwright",
+    "browser-testing",
+    "test-automation",
+    "regression-testing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "test-lab.ai",
+    "shortDescription": "Author browser QA tests for test-lab.ai without leaving your agent.",
+    "longDescription": "test-lab.ai runs natural-language QA tests against real websites: you describe a user flow, an agent drives a browser through it, and you get pass/fail against the acceptance criteria you wrote. These skills teach the agent to author that work properly - test plans with explicit URLs, numbered observable acceptance criteria, and credential references instead of inlined secrets; hand-written Playwright that passes the upload allow-list; and account setup and auth troubleshooting.",
+    "developerName": "test-lab.ai",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Write"
+    ],
+    "websiteURL": "https://test-lab.ai",
+    "privacyPolicyURL": "https://test-lab.ai/privacy",
+    "termsOfServiceURL": "https://test-lab.ai/terms",
+    "defaultPrompt": [
+      "Write a test-lab plan for my checkout flow.",
+      "Turn this Playwright spec into one I can upload to test-lab.",
+      "Connect me to my test-lab account."
+    ],
+    "brandColor": "#00A97F",
+    "logo": "assets/logo.png",
+    "composerIcon": "assets/icon.png"
+  }
+}

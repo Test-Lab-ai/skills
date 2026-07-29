@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "test-lab": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@test-lab-ai/mcp@latest"
+      ],
+      "env": {
+        "TESTLAB_API_KEY": "${user_config.api_key}",
+        "TESTLAB_PROFILE": "${user_config.profile}"
+      }
+    }
+  }
+}
